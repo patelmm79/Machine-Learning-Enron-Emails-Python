@@ -1,0 +1,2 @@
+poi_id_intermediate.py  contains all the exploratory code used in development of final script.  This script is separated from final script so that final script performs better.
+

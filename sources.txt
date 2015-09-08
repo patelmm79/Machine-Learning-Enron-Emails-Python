@@ -1,0 +1,3 @@
+http://scikit-learn.org/stable/modules/model_evaluation.html
+http://scikit-learn.org/stable/modules/neighbors.html
+http://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsClassifier.html
