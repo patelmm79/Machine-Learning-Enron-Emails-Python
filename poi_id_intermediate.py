@@ -2,10 +2,15 @@
 
 import sys
 import pickle
+import numpy
+from pandas import DataFrame
 sys.path.append("../tools/")
 
 from feature_format import featureFormat, targetFeatureSplit
 from tester import test_classifier, dump_classifier_and_data
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import Imputer
+from numpy import column_stack
 
 ### Task 1: Select what features you'll use.
 ### features_list is a list of strings, each of which is a feature name.
@@ -15,59 +20,139 @@ features_list = ['poi','salary', 'deferral_payments', 'total_payments', 'loan_ad
 ### Load the dictionary containing the dataset
 data_dict = pickle.load(open("final_project_dataset.pkl", "r") )
 
-### Task 2: Remove outliers
-###MMP Note: regression
-data = featureFormat(data_dict, features_list, sort_keys = True)
-labels, features = targetFeatureSplit(data)
-
-
-from sklearn import linear_model
-reg = linear_model.LinearRegression()
-reg.fit(features,labels)
-predictions = reg.predict(features)
-
-print len(features)
-
-
-def outlierCleaner(predictions, features, labels):
-
-    cleaned_data = []
-
-    ### your code goes here
-    error=predictions-labels
-    
-    x=len(features)-1
-    originallen=x
-    while x>-1:
-        
-            cleaned_data.append((features[x],labels[x],error[x]))
+print "wtf"
             
-            x=x-1
-        #except IndexError:
+### Task 2: Remove outliers
 
-  
-    while len(cleaned_data)>originallen*.9:
-     
-        cleaned_data.pop()
-    return cleaned_data
-    
-cleaned_data=outlierCleaner(predictions,features,labels)
+            
+#####MMP: check names and number of blanks           
+            
+            
+            
+NanDict={}
 
-import numpy
-if len(cleaned_data) > 0:
-    features, labels, errors = zip(*cleaned_data)
+
+for key in data_dict.keys():
+    NanDict[key]=0
+    for feature in features_list:
+            if data_dict[key][feature]=='NaN':
+                NanDict[key]=NanDict[key]+1
+print "Summary dictionary of keys and missing values:"      
+print NanDict
+
+###Two obvious items should not be in the list: 'TOTAL', and 'THE TRAVEL AGENCY IN THE PARK'
+
+del data_dict['TOTAL']
+del data_dict['THE TRAVEL AGENCY IN THE PARK']
+del NanDict['THE TRAVEL AGENCY IN THE PARK']
+del NanDict['TOTAL']
+
+
+###How many keys are missing  a large number of data points?
+print "Keys with high number of missing data points:"
+print {k: v for k, v in NanDict.items() if v > 15}
+
+###One  key, "LOCKHART EUGENE E" , has 19 values not available.  let's remove him as well.
+
+del data_dict['LOCKHART EUGENE E']
+
+
+
+#print data_dict
+overview=DataFrame.from_dict(data_dict, orient='index')
+
+print "======="
+
+print "here?"
    
 
 
 ### Task 3: Create new feature(s)
 
-####MMP:  see PCA test below
-### Store to my_dataset for easy export below.
+for key in data_dict.keys():
+    if data_dict[key]['from_poi_to_this_person']=='NaN' or data_dict[key]['from_messages']== 'NaN':
+            data_dict[key]['from_poi_ratio']='NaN'
+            
+           
+    else:
+        
+            data_dict[key]['from_poi_ratio']=float(data_dict[key]['from_poi_to_this_person'])/ float(data_dict[key]['from_messages'])
+    if data_dict[key]['from_this_person_to_poi']=='NaN' or data_dict[key]['to_messages']== 'NaN':
+    
+        data_dict[key]['to_poi_ratio']='NaN'
+    else:
+        data_dict[key]['to_poi_ratio']=float(data_dict[key]['from_this_person_to_poi'])/ float(data_dict[key]['to_messages'])
+
+
+#features_list.append('from_poi_ratio')
+features_list.append('to_poi_ratio')
+
+print "here?"
+
+def rescale_process(feature):
+    rescaled_array=[]
+    label=[]
+    scaler=MinMaxScaler(feature_range=(0, 1))
+    
+    if  feature=='poi':    
+        for key in data_dict.keys():
+    
+            if data_dict[key][feature]==True:
+                
+                label.append(1)
+            else:
+                label.append(0)
+        
+        return label
+      
+    else:
+        for key in data_dict.keys():
+            rescaled_array.append(float(data_dict[key][feature]))
+        imp = Imputer(missing_values='NaN', strategy='mean', axis=1)
+       
+ 
+        array_imputed=imp.fit_transform(rescaled_array)
+    
+        array_rescaled=scaler.fit_transform(array_imputed[0])
+   
+  
+        return array_rescaled
+scaled_array=[]
+labels_array = []
+for feature in features_list:
+    if feature !='poi':
+        #scaled_array.append(numpy.array((rescale_process(feature))))
+        scaled_array.append(rescale_process(feature))
+
+            
+    else:
+       labels_array=rescale_process(feature)
+labels_scaled=labels_array
+features_scaled=column_stack(scaled_array)
+
 my_dataset = data_dict
 
+#for item in features_list:
+    
+
+
+
 ### Extract features and labels from dataset for local testing
-#data = featureFormat(my_dataset, features_list, sort_keys = True)
-#labels, features = targetFeatureSplit(data)
+data = featureFormat(my_dataset, features_list, sort_keys = True)
+labels, features = targetFeatureSplit(data)
+
+
+#print "labels are scaled, son", len(features_scaled[1])
+#print "features=", features
+print "length of features", len(features)
+print "number of POIs:", len(overview[overview['poi']==True])
+
+
+
+#print "number of POIs:", len(overview[overview['salary']=='NaN'])
+
+
+
 
 
 ### Task 4: Try a varity of classifiers
@@ -96,6 +181,9 @@ svc=SVC()
 selector=SelectKBest(k=18)
 features_new=selector.fit_transform(features,labels)
 
+#print features
+
+#print labels
 print  selector.scores_
 #features=selector.transform(features)
 #print features
@@ -110,8 +198,8 @@ print "******Testing Decision Tree*******"
 
 
 clf=decisiontree
-clf.fit(features,labels)           
-test_classifier(clf, my_dataset, features_list)    
+#clf.fit(features,labels)           
+#test_classifier(clf, my_dataset, features_list)    
 
 
 
@@ -121,10 +209,10 @@ test_classifier(clf, my_dataset, features_list)
 print "******Testing Naive Bayes*******"
 
 
-clf=GaussianNB()
+clf1=GaussianNB()
 
-clf.fit(features,labels)           
-test_classifier(clf, my_dataset, features_list)    
+#clf1.fit(features,labels)           
+#test_classifier(clf1, my_dataset, features_list)    
 
 
 
@@ -132,9 +220,21 @@ test_classifier(clf, my_dataset, features_list)
 
 print "******Testing K-Neighbors*******"
 
-clf=KNeighborsClassifier()
-clf.fit(features,labels)           
-test_classifier(clf, my_dataset, features_list)    
+
+print "K-Neighbors Scaled"
+
+
+clf2=KNeighborsClassifier()
+#features_what = scaled_array
+clf2.fit(features_scaled,labels_scaled)
+test_classifier(clf2, my_dataset, features_list)
+
+print "K-Neighbors Unscaled"
+ 
+
+clf3=KNeighborsClassifier()
+clf3.fit(features,labels)
+test_classifier(clf3, my_dataset, features_list)
 
 ###MMP: test PCA with K-neighbors
 
@@ -145,11 +245,11 @@ n_components=[2,5,7,10,15]
 parameters_to_tune = {'pca__n_components':n_components}
 
 pipe = Pipeline(steps=[('pca', pca), ('neighbors',KNeighborsClassifier())])
-estimator = GridSearchCV(pipe,parameters_to_tune,refit=True,scoring='recall_macro')
-clf=estimator.fit(features,labels)
+#estimator = GridSearchCV(pipe,parameters_to_tune,refit=True,scoring='recall_macro')
+#clf=estimator.fit(features,labels)
    
-test_classifier(clf, my_dataset, features_list)  
-print "best estimators are", clf.best_estimator_  
+#test_classifier(clf, my_dataset, features_list)  
+#print "best estimators are", clf.best_estimator_  
 
 ####MMP: Optimize K-Neighbors
 
@@ -159,15 +259,15 @@ print "******Optimising K-Neighbors*******"
 
 
 parameters_to_tune = {#'pca__n_components':n_components,
-                      'kbest__k':[2,5,10,15,'all'],
+                      'kbest__k':[17,18,19,20,'all'],
                           
                         'neighbors__n_neighbors': [2,3,4],
                 
                       'neighbors__weights': ['distance'],
-                      'neighbors__leaf_size':[10,11,15,30],
+                      'neighbors__leaf_size':[1,5,10,11,15,30],
                        # 'neighbors__leaf_size':[15],
                     # 'neighbors__leaf_size':[30],
-                     'neighbors__metric':['euclidean', 'manhattan', 'chebyshev','minkowski', 'wminkowski','seuclidean','mahalanobis','haversine','hamming', 'canberra', 'braycurtis','jaccard','maching','dice','kulsinski', 'rogerstanimoto', 'russellrao','sokalmichener','sokalsneath'],
+                     'neighbors__metric':['euclidean', 'manhattan', 'chebyshev','minkowski','hamming', 'canberra', 'braycurtis','jaccard','dice','kulsinski', 'rogerstanimoto', 'russellrao','sokalmichener','sokalsneath'],
                     # 'neighbors__metric':['canberra', 'braycurtis','jaccard','dice','kulsinski', 'rogerstanimoto', 'russellrao','sokalmichener','sokalsneath'],#,'haversine','hamming'],
                     #'neighbors__metric':['rogerstanimoto'],
                     'neighbors__algorithm' : ['auto'],
@@ -177,15 +277,32 @@ parameters_to_tune = {#'pca__n_components':n_components,
                      ## 'decisiontree__max_features':[None, 2, 4, 6, 8],
                      }
 
+print "here?"
 pipe = Pipeline(steps=[('kbest', SelectKBest(f_classif)),('neighbors',KNeighborsClassifier())])
+estimator=GridSearchCV(pipe,parameters_to_tune, refit=True,scoring='recall_macro')
 
-clf=estimator.fit(features,labels)
 
 
-print "best estimators are", clf.best_estimator_
+clf4=estimator.fit(features_scaled,labels)
+
+test_classifier(clf4, my_dataset, features_list)    
+
+print  selector.scores_
+
+
+print "best estimators are", clf4.best_estimator_
+
+
+print "******Testing optimised K-Neighbors*******"
+clf5=KNeighborsClassifier(algorithm='auto',weights='distance',leaf_size=1,metric='chebyshev',p=1,n_neighbors=4)
+#selector=SelectKBest(k=15)
+features_new=selector.fit_transform(features_scaled,labels)
+ 
+ 
+clf5.fit(features_new,labels)
 
        
-test_classifier(clf, my_dataset, features_list)    
+test_classifier(clf5, my_dataset, features_list)
 
 
 
@@ -198,7 +315,7 @@ test_classifier(clf, my_dataset, features_list)
 ### shuffle split cross validation. For more info: 
 ### http://scikit-learn.org/stable/modules/generated/sklearn.cross_validation.StratifiedShuffleSplit.html
 
-test_classifier(clf, my_dataset, features_list)
+#test_classifier(clf, my_dataset, features_list)
 
 ### Dump your classifier, dataset, and features_list so 
 ### anyone can run/check your results.
