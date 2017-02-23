@@ -3,4 +3,4 @@ fraud by analyzing characteristics of the Enron email database . Machine learnin
 
 Documentation for this analysis is available here:
 
-https://rawgit.com/patelmm79/Analysis-WB-Informal-Firm-Survey-Bangladesh-in-R/master/MilanPatelUdacityP3.html
+https://rawgit.com/patelmm79/Machine-Learning-Enron-Emails-Python/master/P4_Project_Analysis.pdf
